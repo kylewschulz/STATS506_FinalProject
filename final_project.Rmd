@@ -1,0 +1,86 @@
+---
+title: "Temporal Effects on Building Energy Efficiency, <br>Stats 506, F20"
+author: "Kyle Schulz"
+date: "`r format.Date(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    code_folding: hide
+    highlight: pygments
+    theme: united
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(stargazer)
+#CHANGE WD TO APPR. DIRECTORY IF YOU WISH TO RERUN
+setwd('~/Downloads/')
+#stop sci notation
+options(scipen=999)
+```
+
+```{r source, include=FALSE}
+source("final_project.R")
+```
+
+## Introduction 
+
+One of the biggest issues facing the United States of America (and the rest of the world) is the current environmental crisis. Recently, as technology continued to advance exponentially, the world saw a significant rise in energy consumption, and with it, pollution and global warming. Energy is on everyone's mind, as there are more than just humanitarian reasons to be concerned about energy use. Energy can often be one of a buisness' greatest expenses, with even small reductions generating large profit increases over time. One of the biggest drivers of energy use is the building in which a business is located. Often times, a decision maker may have more than just the rent to worry about when deciding where to locate a business. As years have passed, building construction has advanced too. A building built in the 1950s often looks (and functions) much differently than one built recently. However, do these differences also result in a change in energy use? To answer, we examine the relationship between annual electricity use and building year of construction, while attempting to account for any potential cofounders.
+
+## Methods
+
+### Data 
+
+To answer this question, we compiled results from the 2012 Commercial Buildings Energy Consumption Survey (CBECS). This survey queried thousands of businesses across the country, asking for, among other things, the annual building electricity consumption, the building square footage, the year of construction, and whether or not the building was freestanding. Alongside this building-specific information, the region of the country was also collected, which could help control for any weather related concerns. From this data, we chose to focus only on buildings with complete response data that were built after 1945. The final dataset contained 5753 data points, as shown in the table below. The dataset (and all associated analysis code) can be found at https://github.com/kylewschulz/STATS506_FinalProject.
+
+### Exploratory Analysis
+
+To get a better sense of our sample, we first conducted a summary analysis, shown in the table below. It is apparent that our data is generally spread out across our time frame of interest, which is good, as we will have large amounts of data for each construction year possibility. It's also notable that most (~93%) of the buildings in our sample are freestanding. 
+
+```{r 1a, results = 'asis', message = FALSE}
+summ <- cbecs %>% select(Freestanding, YRCON)
+stargazer(summ, align=TRUE, type='html', style="aer")
+```
+
+For variables with larger potential spread, we see them better summarized in boxplots (Figure 1). We note that, while considering the log-scaled y axis, we do see significant extreme values near the upper end of both of these variables. 
+
+```{r 1b, results = 'asis', message = FALSE,fig.cap=cap2}
+par(mar=c(10,5,2,2)+.1)
+par(mfrow = c(1, 2))
+boxplot(SQFT~Division,data=cbecs, log='y',ylab="Building Square Footage", xlab="", las=3)
+boxplot(ELCNS~Division,data=cbecs, log='y',ylab="Annual electricity consumption (kWh)", xlab="", las=3)
+mtext("2012 CBECS Survey Summary", side = 3, line = -1.5, outer = TRUE)
+cap2 <- "Figure 1: Boxplots on Building Square Footage and Annual Electricity Consumption (CBECS 2012)"
+```
+
+### Modelling 
+
+For our first look at the potential relationship between year of construction and electrictiy usage, we try an extremely naive approach, and show a simple linear regression (Figure 2). This is the first of our surprising results. Initially, we see a positive trend between construction year and electricty usage, indicating that electricity use rises in newer buildings. However, this is not a very rigorours approach. It could be that newer buildings are just bigger, and thus have more electricity need. 
+
+
+```{r 1c, results = 'asis', message = FALSE, fig.cap=cap3}
+ggplot(data = cbecs, aes(x = YRCON, y = ELCNS)) + 
+  geom_point(color='grey') + 
+  geom_smooth(method = "lm", se = FALSE) + 
+  scale_y_log10() +
+  xlab("Construction Year") +
+  ylab("Annual electricity consumption (kWh)")
+cap3 <- "Figure 2: Simple Linear Regression on Electricity Consumption Against Construction Year"
+```
+
+We attempt to solve the problems with the previous model by generating a more complex model. Our first goal is to properly account for the survey weighting scheme. The 2012 CBECS comes with included sampling weights for a jackknife-style error estimation. Our old model assumed that every point in the sample should be weighted equally, which is not a valid assumption. Second, we need to account for cofounders like those mentioned earlier. From the data, we are able to match the annual building electricity consumption with the building square footage, whether or not the building is freestanding, and the census division where the building is located. But we're not done yet. From figure 1, we can tell that we may not have a normally spread distribution of square footage. To account for this, we calculate a cubic b-spline on square footage, allowing us to alter the model for the outlying edges of the distribution. Finally, we can conduct a gaussian-style regression. We see the results of this regression below.
+
+```{r 1d, results = 'asis', message = FALSE}
+stargazer(gl, align=TRUE, type='html', style="aer")
+```
+
+## Results
+
+The results of our model show a statistically significant postive trend between year of construction and annual electricity usage, even after accounting for the size of the building and other factors. The model also confirms our hypothesis that larger buildings use more electricity. However, we fail to find significant evidence for a differening relationship in different regions of the country or for freestanding or non-freestanding buildings. 
+
+## Discussion 
+
+While we do have a significant result, it may be too early to draw conclusions. While it is true that, when accounting for the variables listed in the table above, we see that newer buildings use more electricity, we may be missing some unknown cofounders. It also may be the case that older buildings are using other sources of energy than electricity, that are unaccounted for in this survey data. However, at the least, it may be a call for companies to stop and re-examine their energy policies, and realize that a newer building doesn't automatically mean it's as efficient as possible. 
+
+### References 
+Hlavac, Marek (2018). stargazer: Well-Formatted Regression and Summary Statistics Tables. R package version 5.2.1. https://CRAN.R-project.org/package=stargazer
